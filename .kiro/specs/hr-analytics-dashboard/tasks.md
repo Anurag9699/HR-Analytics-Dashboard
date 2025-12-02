@@ -1,0 +1,153 @@
+# Implementation Plan
+
+- [x] 1. Set up Django backend project with MySQL connection
+  - [x] 1.1 Initialize Django project and create hr_analytics app
+    - Create Django project named `backend`
+    - Create app named `hr_analytics`
+    - Configure settings for MySQL database connection (host: localhost, user: root, password: anurag9699)
+    - Install required packages: djangorestframework, mysqlclient, django-cors-headers
+    - _Requirements: 5.1_
+  - [x] 1.2 Configure Django REST Framework and CORS
+    - Add rest_framework and corsheaders to INSTALLED_APPS
+    - Configure CORS to allow requests from React dev server (localhost:5173)
+    - Set up DRF default settings
+    - _Requirements: 5.3_
+
+- [-] 2. Create Django models and database schema
+  - [x] 2.1 Implement Employee, Attendance, and Leave models
+    - Create Employee model with name, department, hire_date, is_active fields
+    - Create Attendance model with employee FK, date, status fields
+    - Create Leave model with employee FK, leave_type, start_date, end_date, days fields
+    - Run migrations to create MySQL tables
+    - _Requirements: 1.1, 1.2_
+  - [ ]* 2.2 Write property test for Employee data persistence round-trip
+    - **Property 1: Employee Data Persistence Round-Trip**
+    - **Validates: Requirements 1.1**
+  - [ ]* 2.3 Write property test for serialization round-trip
+    - **Property 7: Serialization Round-Trip Consistency**
+    - **Validates: Requirements 5.4, 5.5**
+
+- [x] 3. Implement Django REST API serializers and views
+  - [x] 3.1 Create serializers for all models
+    - Implement EmployeeSerializer with nested attendance/leave counts
+    - Implement AttendanceAnalyticsSerializer for aggregated data
+    - Implement LeaveAnalyticsSerializer for leave breakdown
+    - Implement AttritionAnalyticsSerializer for attrition metrics
+    - _Requirements: 5.4_
+  - [x] 3.2 Implement API views for analytics endpoints
+    - Create /api/employees/ endpoint for employee list
+    - Create /api/attendance/analytics/ endpoint with absenteeism calculation
+    - Create /api/leave/analytics/ endpoint with leave type breakdown
+    - Create /api/attrition/analytics/ endpoint with attrition rate
+    - _Requirements: 2.2, 2.4, 3.2, 3.3, 4.2, 4.3, 5.2_
+  - [x] 3.3 Configure URL routing for API endpoints
+    - Set up urls.py with all API routes
+    - Register viewsets with DRF router
+    - _Requirements: 5.2_
+  - [ ]* 3.4 Write property test for absenteeism rate calculation
+    - **Property 2: Absenteeism Rate Calculation Correctness**
+    - **Validates: Requirements 2.2**
+  - [ ]* 3.5 Write property test for attendance department grouping
+    - **Property 3: Attendance Department Grouping Integrity**
+    - **Validates: Requirements 2.4**
+  - [ ]* 3.6 Write property test for leave aggregation by type
+    - **Property 4: Leave Aggregation by Type Correctness**
+    - **Validates: Requirements 3.2, 3.3**
+  - [ ]* 3.7 Write property test for attrition rate calculation
+    - **Property 5: Attrition Rate Calculation Correctness**
+    - **Validates: Requirements 4.2**
+  - [ ]* 3.8 Write property test for API JSON response format
+    - **Property 6: API JSON Response Format Validity**
+    - **Validates: Requirements 5.2**
+
+- [x] 4. Checkpoint - Backend API complete
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 5. Set up React frontend project with Vite and Tailwind
+  - [x] 5.1 Initialize React project with Vite
+    - Create React project using Vite in `frontend` directory
+    - Install dependencies: axios, recharts, tailwindcss
+    - Configure Tailwind CSS
+    - _Requirements: 6.3_
+  - [x] 5.2 Set up Axios API client
+    - Create api.js service file with base URL configuration
+    - Implement API functions: getAttendanceAnalytics, getLeaveAnalytics, getAttritionAnalytics
+    - Add error handling for API calls
+    - _Requirements: 6.1_
+
+- [x] 6. Implement React dashboard components
+  - [x] 6.1 Create KPICard component
+    - Build reusable KPI card component with Tailwind styling
+    - Accept props for title, value, and optional trend indicator
+    - _Requirements: 2.1, 4.1_
+  - [x] 6.2 Create AttendanceChart component
+    - Implement line chart using Recharts for attendance trends
+    - Display absenteeism rate KPI card
+    - Fetch data from /api/attendance/analytics/
+    - _Requirements: 2.1, 2.3_
+  - [x] 6.3 Create LeaveChart component
+    - Implement bar chart using Recharts for leave type breakdown
+    - Display leave totals by type (Sick, Vacation, Personal)
+    - Fetch data from /api/leave/analytics/
+    - _Requirements: 3.1_
+  - [x] 6.4 Create AttritionChart component
+    - Implement chart for attrition metrics
+    - Display attrition rate KPI card
+    - Fetch data from /api/attrition/analytics/
+    - _Requirements: 4.1, 4.4_
+  - [x] 6.5 Create main Dashboard component
+    - Compose all chart components into dashboard layout
+    - Implement loading and error states
+    - Style with Tailwind CSS grid layout
+    - _Requirements: 6.2, 6.3_
+
+- [x] 7. Checkpoint - Full stack integration complete
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 8. Add seed data and final polish
+  - [ ] 8.1 Create management command for seed data
+    - Write Django management command to populate test data
+    - Generate sample employees, attendance records, and leave records
+    - _Requirements: 1.1_
+  - [ ] 8.2 Add Navbar and improve UI styling
+    - Create Navbar component with app title
+    - Polish dashboard layout and responsiveness
+    - Ensure consistent Tailwind styling throughout
+    - _Requirements: 6.3_
+  - [ ]* 8.3 Write unit tests for React components
+    - Test KPICard renders correctly with props
+    - Test chart components handle loading/error states
+    - Test API service functions
+    - _Requirements: 6.1, 6.2_
+
+- [ ] 9. Implement Date Filtering (Stretch Goal)
+  - [ ] 9.1 Add date filter parameters to Django API endpoints
+    - Modify attendance, leave, and attrition views to accept start_date and end_date query params
+    - Filter queryset based on date range when params provided
+    - _Requirements: 7.1_
+  - [ ] 9.2 Create DateRangeFilter component in React
+    - Build date picker component with start/end date inputs
+    - Add preset options ("Last 7 Days", "Last 30 Days", "This Month")
+    - Trigger API re-fetch when date range changes
+    - _Requirements: 7.1, 7.2_
+  - [ ] 9.3 Integrate date filter with all dashboard charts
+    - Pass date range to all API calls
+    - Update charts to reflect filtered data
+    - _Requirements: 7.2_
+
+- [ ] 10. Implement Data Export (Stretch Goal)
+  - [ ] 10.1 Add CSV export endpoint to Django API
+    - Create /api/export/csv/ endpoint that returns CSV formatted data
+    - Include attendance, leave, and attrition data in export
+    - _Requirements: 8.1_
+  - [ ] 10.2 Create ExportButton component in React
+    - Build export button with download icon
+    - Call export API and trigger browser download
+    - Show loading state during export
+    - _Requirements: 8.1, 8.2_
+  - [ ]* 10.3 Write property test for CSV export round-trip
+    - **Property 8: CSV Export Round-Trip**
+    - **Validates: Requirements 8.1**
+
+- [ ] 11. Final Checkpoint - Make sure all tests are passing
+  - Ensure all tests pass, ask the user if questions arise.
