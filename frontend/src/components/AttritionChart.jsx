@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   Bar,
   XAxis,
@@ -22,7 +23,7 @@ import { getAttritionAnalytics } from '../services/api';
  * 
  * Requirements: 4.1, 4.4
  */
-function AttritionChart() {
+function AttritionChart({ dateRange }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +33,7 @@ function AttritionChart() {
       try {
         setLoading(true);
         setError(null);
-        const analyticsData = await getAttritionAnalytics();
+        const analyticsData = await getAttritionAnalytics(dateRange);
         setData(analyticsData);
       } catch (err) {
         setError('Failed to load attrition data. Please try again later.');
@@ -43,12 +44,12 @@ function AttritionChart() {
     };
 
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const handleRetry = () => {
     setError(null);
     setLoading(true);
-    getAttritionAnalytics()
+    getAttritionAnalytics(dateRange)
       .then(setData)
       .catch((err) => {
         setError('Failed to load attrition data. Please try again later.');
@@ -101,14 +102,17 @@ function AttritionChart() {
         <KPICard
           title="Attrition Rate"
           value={`${attrition_rate?.toFixed(1) ?? 0}%`}
+          color="orange"
         />
         <KPICard
           title="Employees Left"
           value={employees_left ?? 0}
+          color="red"
         />
         <KPICard
           title="Total Employees"
           value={total_employees ?? 0}
+          color="purple"
         />
       </div>
 
@@ -194,5 +198,16 @@ function AttritionChart() {
     </div>
   );
 }
+
+AttritionChart.propTypes = {
+  dateRange: PropTypes.shape({
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+  }),
+};
+
+AttritionChart.defaultProps = {
+  dateRange: null,
+};
 
 export default AttritionChart;

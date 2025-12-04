@@ -5,6 +5,7 @@ from .views import (
     AttendanceAnalyticsView,
     LeaveAnalyticsView,
     AttritionAnalyticsView,
+    CSVExportView,
 )
 
 # Create router and register viewsets
@@ -19,4 +20,7 @@ urlpatterns = [
     path('attendance/analytics/', AttendanceAnalyticsView.as_view(), name='attendance-analytics'),
     path('leave/analytics/', LeaveAnalyticsView.as_view(), name='leave-analytics'),
     path('attrition/analytics/', AttritionAnalyticsView.as_view(), name='attrition-analytics'),
+    
+    # Export endpoint
+    path('export/csv/', CSVExportView.as_view(), name='export-csv'),
 ]

@@ -22,7 +22,7 @@ import { getLeaveAnalytics } from '../services/api';
  * 
  * Requirements: 3.1
  */
-function LeaveChart() {
+function LeaveChart({ dateRange }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +32,7 @@ function LeaveChart() {
       try {
         setLoading(true);
         setError(null);
-        const analyticsData = await getLeaveAnalytics();
+        const analyticsData = await getLeaveAnalytics(dateRange);
         setData(analyticsData);
       } catch (err) {
         setError('Failed to load leave data. Please try again later.');
@@ -43,12 +43,12 @@ function LeaveChart() {
     };
 
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const handleRetry = () => {
     setError(null);
     setLoading(true);
-    getLeaveAnalytics()
+    getLeaveAnalytics(dateRange)
       .then(setData)
       .catch((err) => {
         setError('Failed to load leave data. Please try again later.');
@@ -108,6 +108,7 @@ function LeaveChart() {
       <KPICard
         title="Total Leave Days"
         value={total_leave_days ?? 0}
+        color="blue"
       />
 
       {/* Bar Chart for Leave Type Breakdown */}
@@ -165,6 +166,15 @@ function LeaveChart() {
   );
 }
 
-LeaveChart.propTypes = {};
+LeaveChart.propTypes = {
+  dateRange: PropTypes.shape({
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+  }),
+};
+
+LeaveChart.defaultProps = {
+  dateRange: null,
+};
 
 export default LeaveChart;

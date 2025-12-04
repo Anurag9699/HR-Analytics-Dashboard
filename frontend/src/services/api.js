@@ -13,12 +13,30 @@ const apiClient = axios.create({
 });
 
 /**
+ * Build query params object from date range
+ * @param {Object} dateRange - Object with startDate and endDate
+ * @returns {Object} Query params object
+ */
+const buildDateParams = (dateRange) => {
+  const params = {};
+  if (dateRange?.startDate) {
+    params.start_date = dateRange.startDate;
+  }
+  if (dateRange?.endDate) {
+    params.end_date = dateRange.endDate;
+  }
+  return params;
+};
+
+/**
  * Fetch attendance analytics data
+ * @param {Object} dateRange - Optional date range filter with startDate and endDate
  * @returns {Promise<Object>} Attendance analytics including absenteeism rate and trend data
  */
-export const getAttendanceAnalytics = async () => {
+export const getAttendanceAnalytics = async (dateRange = null) => {
   try {
-    const response = await apiClient.get('/attendance/analytics/');
+    const params = buildDateParams(dateRange);
+    const response = await apiClient.get('/attendance/analytics/', { params });
     return response.data;
   } catch (error) {
     handleApiError(error, 'Failed to fetch attendance analytics');
@@ -28,11 +46,13 @@ export const getAttendanceAnalytics = async () => {
 
 /**
  * Fetch leave analytics data
+ * @param {Object} dateRange - Optional date range filter with startDate and endDate
  * @returns {Promise<Object>} Leave analytics including breakdown by type
  */
-export const getLeaveAnalytics = async () => {
+export const getLeaveAnalytics = async (dateRange = null) => {
   try {
-    const response = await apiClient.get('/leave/analytics/');
+    const params = buildDateParams(dateRange);
+    const response = await apiClient.get('/leave/analytics/', { params });
     return response.data;
   } catch (error) {
     handleApiError(error, 'Failed to fetch leave analytics');
@@ -42,11 +62,13 @@ export const getLeaveAnalytics = async () => {
 
 /**
  * Fetch attrition analytics data
+ * @param {Object} dateRange - Optional date range filter with startDate and endDate
  * @returns {Promise<Object>} Attrition analytics including rate and monthly trends
  */
-export const getAttritionAnalytics = async () => {
+export const getAttritionAnalytics = async (dateRange = null) => {
   try {
-    const response = await apiClient.get('/attrition/analytics/');
+    const params = buildDateParams(dateRange);
+    const response = await apiClient.get('/attrition/analytics/', { params });
     return response.data;
   } catch (error) {
     handleApiError(error, 'Failed to fetch attrition analytics');
@@ -65,6 +87,25 @@ export const getEmployees = async () => {
     return response.data;
   } catch (error) {
     handleApiError(error, 'Failed to fetch employees');
+    throw error;
+  }
+};
+
+/**
+ * Export dashboard data as CSV
+ * @param {Object} dateRange - Optional date range filter with startDate and endDate
+ * @returns {Promise<Blob>} CSV file as blob for download
+ */
+export const exportCSV = async (dateRange = null) => {
+  try {
+    const params = buildDateParams(dateRange);
+    const response = await apiClient.get('/export/csv/', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error, 'Failed to export CSV');
     throw error;
   }
 };

@@ -3,8 +3,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Count, Q, Sum
 from django.db.models.functions import TruncMonth, TruncDate
+from django.http import HttpResponse
 from collections import defaultdict
 from datetime import datetime, timedelta
+import csv
+import io
 
 from .models import Employee, Attendance, Leave
 from .serializers import (
@@ -13,6 +16,32 @@ from .serializers import (
     LeaveAnalyticsSerializer,
     AttritionAnalyticsSerializer,
 )
+
+
+def parse_date_params(request):
+    """
+    Parse start_date and end_date query parameters from request.
+    Returns tuple of (start_date, end_date) as date objects or None if not provided.
+    """
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    
+    parsed_start = None
+    parsed_end = None
+    
+    if start_date:
+        try:
+            parsed_start = datetime.strptime(start_date, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if end_date:
+        try:
+            parsed_end = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    return parsed_start, parsed_end
 
 
 class EmployeeViewSet(viewsets.ReadOnlyModelViewSet):
@@ -26,8 +55,16 @@ class AttendanceAnalyticsView(APIView):
     """API view for attendance analytics with absenteeism calculation."""
     
     def get(self, request):
-        # Get all attendance records
+        # Parse date filter parameters
+        start_date, end_date = parse_date_params(request)
+        
+        # Get attendance records with optional date filtering
         attendance_records = Attendance.objects.all()
+        
+        if start_date:
+            attendance_records = attendance_records.filter(date__gte=start_date)
+        if end_date:
+            attendance_records = attendance_records.filter(date__lte=end_date)
         
         # Calculate total working days and absent days
         total_working_days = attendance_records.count()
@@ -53,13 +90,13 @@ class AttendanceAnalyticsView(APIView):
                 'absent_count': stat['absent_count']
             })
         
-        # Get department breakdown
+        # Get department breakdown (filtered by date range)
         department_breakdown = []
         departments = Employee.objects.values_list('department', flat=True).distinct()
         
         for dept in departments:
             dept_employees = Employee.objects.filter(department=dept)
-            dept_attendance = Attendance.objects.filter(employee__in=dept_employees)
+            dept_attendance = attendance_records.filter(employee__in=dept_employees)
             dept_total = dept_attendance.count()
             dept_absent = dept_attendance.filter(status='absent').count()
             
@@ -88,9 +125,18 @@ class LeaveAnalyticsView(APIView):
     """API view for leave analytics with type breakdown."""
     
     def get(self, request):
-        # Get leave counts by type
+        # Parse date filter parameters
+        start_date, end_date = parse_date_params(request)
+        
+        # Get leave records with optional date filtering
         leave_records = Leave.objects.all()
         
+        if start_date:
+            leave_records = leave_records.filter(start_date__gte=start_date)
+        if end_date:
+            leave_records = leave_records.filter(end_date__lte=end_date)
+        
+        # Get leave counts by type
         sick_days = leave_records.filter(leave_type='sick').aggregate(
             total=Sum('days'))['total'] or 0
         vacation_days = leave_records.filter(leave_type='vacation').aggregate(
@@ -134,9 +180,21 @@ class AttritionAnalyticsView(APIView):
     """API view for attrition metrics."""
     
     def get(self, request):
+        # Parse date filter parameters
+        start_date, end_date = parse_date_params(request)
+        
         # Get employee counts
         total_employees = Employee.objects.count()
-        employees_left = Employee.objects.filter(is_active=False).count()
+        
+        # Get inactive employees with optional date filtering on updated_at
+        inactive_employees = Employee.objects.filter(is_active=False)
+        
+        if start_date:
+            inactive_employees = inactive_employees.filter(updated_at__date__gte=start_date)
+        if end_date:
+            inactive_employees = inactive_employees.filter(updated_at__date__lte=end_date)
+        
+        employees_left = inactive_employees.count()
         
         # Calculate attrition rate
         attrition_rate = 0.0
@@ -145,7 +203,6 @@ class AttritionAnalyticsView(APIView):
         
         # Get monthly trend (based on updated_at for inactive employees)
         monthly_trend = []
-        inactive_employees = Employee.objects.filter(is_active=False)
         
         monthly_stats = inactive_employees.annotate(
             month=TruncMonth('updated_at')
@@ -175,3 +232,149 @@ class AttritionAnalyticsView(APIView):
         
         serializer = AttritionAnalyticsSerializer(data)
         return Response(serializer.data)
+
+
+class CSVExportView(APIView):
+    """
+    API view for exporting dashboard data as CSV.
+    Includes attendance, leave, and attrition data in the export.
+    Requirements: 8.1
+    """
+    
+    def get(self, request):
+        # Parse date filter parameters
+        start_date, end_date = parse_date_params(request)
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # --- Attendance Data Section ---
+        writer.writerow(['=== ATTENDANCE DATA ==='])
+        writer.writerow([])
+        
+        # Get attendance records with optional date filtering
+        attendance_records = Attendance.objects.select_related('employee').all()
+        if start_date:
+            attendance_records = attendance_records.filter(date__gte=start_date)
+        if end_date:
+            attendance_records = attendance_records.filter(date__lte=end_date)
+        
+        # Calculate attendance summary
+        total_working_days = attendance_records.count()
+        total_absent_days = attendance_records.filter(status='absent').count()
+        absenteeism_rate = 0.0
+        if total_working_days > 0:
+            absenteeism_rate = (total_absent_days / total_working_days) * 100
+        
+        writer.writerow(['Attendance Summary'])
+        writer.writerow(['Metric', 'Value'])
+        writer.writerow(['Total Working Days', total_working_days])
+        writer.writerow(['Total Absent Days', total_absent_days])
+        writer.writerow(['Absenteeism Rate (%)', round(absenteeism_rate, 2)])
+        writer.writerow([])
+        
+        # Attendance records detail
+        writer.writerow(['Attendance Records'])
+        writer.writerow(['Employee Name', 'Department', 'Date', 'Status'])
+        for record in attendance_records.order_by('date', 'employee__name'):
+            writer.writerow([
+                record.employee.name,
+                record.employee.department,
+                record.date.isoformat(),
+                record.status
+            ])
+        writer.writerow([])
+        
+        # --- Leave Data Section ---
+        writer.writerow(['=== LEAVE DATA ==='])
+        writer.writerow([])
+        
+        # Get leave records with optional date filtering
+        leave_records = Leave.objects.select_related('employee').all()
+        if start_date:
+            leave_records = leave_records.filter(start_date__gte=start_date)
+        if end_date:
+            leave_records = leave_records.filter(end_date__lte=end_date)
+        
+        # Calculate leave summary
+        sick_days = leave_records.filter(leave_type='sick').aggregate(
+            total=Sum('days'))['total'] or 0
+        vacation_days = leave_records.filter(leave_type='vacation').aggregate(
+            total=Sum('days'))['total'] or 0
+        personal_days = leave_records.filter(leave_type='personal').aggregate(
+            total=Sum('days'))['total'] or 0
+        total_leave_days = sick_days + vacation_days + personal_days
+        
+        writer.writerow(['Leave Summary'])
+        writer.writerow(['Leave Type', 'Total Days'])
+        writer.writerow(['Sick', sick_days])
+        writer.writerow(['Vacation', vacation_days])
+        writer.writerow(['Personal', personal_days])
+        writer.writerow(['Total', total_leave_days])
+        writer.writerow([])
+        
+        # Leave records detail
+        writer.writerow(['Leave Records'])
+        writer.writerow(['Employee Name', 'Department', 'Leave Type', 'Start Date', 'End Date', 'Days'])
+        for record in leave_records.order_by('start_date', 'employee__name'):
+            writer.writerow([
+                record.employee.name,
+                record.employee.department,
+                record.leave_type,
+                record.start_date.isoformat(),
+                record.end_date.isoformat(),
+                record.days
+            ])
+        writer.writerow([])
+        
+        # --- Attrition Data Section ---
+        writer.writerow(['=== ATTRITION DATA ==='])
+        writer.writerow([])
+        
+        # Get employee counts
+        total_employees = Employee.objects.count()
+        inactive_employees = Employee.objects.filter(is_active=False)
+        
+        if start_date:
+            inactive_employees = inactive_employees.filter(updated_at__date__gte=start_date)
+        if end_date:
+            inactive_employees = inactive_employees.filter(updated_at__date__lte=end_date)
+        
+        employees_left = inactive_employees.count()
+        attrition_rate = 0.0
+        if total_employees > 0:
+            attrition_rate = (employees_left / total_employees) * 100
+        
+        writer.writerow(['Attrition Summary'])
+        writer.writerow(['Metric', 'Value'])
+        writer.writerow(['Total Employees', total_employees])
+        writer.writerow(['Employees Left', employees_left])
+        writer.writerow(['Attrition Rate (%)', round(attrition_rate, 2)])
+        writer.writerow([])
+        
+        # Employee list
+        writer.writerow(['Employee List'])
+        writer.writerow(['Name', 'Department', 'Hire Date', 'Status'])
+        for emp in Employee.objects.all().order_by('name'):
+            writer.writerow([
+                emp.name,
+                emp.department,
+                emp.hire_date.isoformat(),
+                'Active' if emp.is_active else 'Inactive'
+            ])
+        
+        # Create HTTP response with CSV content
+        output.seek(0)
+        response = HttpResponse(output.getvalue(), content_type='text/csv')
+        
+        # Generate filename with date range if provided
+        filename = 'hr_analytics_export'
+        if start_date:
+            filename += f'_from_{start_date.isoformat()}'
+        if end_date:
+            filename += f'_to_{end_date.isoformat()}'
+        filename += '.csv'
+        
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response

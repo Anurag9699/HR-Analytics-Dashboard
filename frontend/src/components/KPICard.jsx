@@ -8,12 +8,23 @@ import PropTypes from 'prop-types';
  * @param {object} trend - Optional trend indicator with direction and value
  * @param {string} trend.direction - 'up' or 'down'
  * @param {string|number} trend.value - The trend percentage or value
+ * @param {string} color - Optional color theme ('blue', 'green', 'red', 'orange')
+ * 
+ * Requirements: 2.1, 4.1
  */
-function KPICard({ title, value, trend }) {
+function KPICard({ title, value, trend, color = 'blue' }) {
+  const colorClasses = {
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-green-600',
+    red: 'from-red-500 to-red-600',
+    orange: 'from-orange-500 to-orange-600',
+    purple: 'from-purple-500 to-purple-600'
+  };
+
   const getTrendColor = (direction) => {
-    if (direction === 'up') return 'text-green-600';
-    if (direction === 'down') return 'text-red-600';
-    return 'text-gray-500';
+    if (direction === 'up') return 'text-green-400';
+    if (direction === 'down') return 'text-red-400';
+    return 'text-gray-400';
   };
 
   const getTrendIcon = (direction) => {
@@ -35,12 +46,12 @@ function KPICard({ title, value, trend }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+    <div className={`bg-gradient-to-br ${colorClasses[color] || colorClasses.blue} rounded-xl shadow-lg p-6 text-white`}>
+      <h3 className="text-sm font-medium text-white/80 uppercase tracking-wide">
         {title}
       </h3>
       <div className="mt-2 flex items-baseline">
-        <p className="text-3xl font-semibold text-gray-900">
+        <p className="text-3xl font-bold">
           {value}
         </p>
         {trend && (
@@ -60,11 +71,13 @@ KPICard.propTypes = {
   trend: PropTypes.shape({
     direction: PropTypes.oneOf(['up', 'down']),
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-  })
+  }),
+  color: PropTypes.oneOf(['blue', 'green', 'red', 'orange', 'purple'])
 };
 
 KPICard.defaultProps = {
-  trend: null
+  trend: null,
+  color: 'blue'
 };
 
 export default KPICard;

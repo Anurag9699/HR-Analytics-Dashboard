@@ -22,7 +22,7 @@ import { getAttendanceAnalytics } from '../services/api';
  * 
  * Requirements: 2.1, 2.3
  */
-function AttendanceChart() {
+function AttendanceChart({ dateRange }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +32,7 @@ function AttendanceChart() {
       try {
         setLoading(true);
         setError(null);
-        const analyticsData = await getAttendanceAnalytics();
+        const analyticsData = await getAttendanceAnalytics(dateRange);
         setData(analyticsData);
       } catch (err) {
         setError('Failed to load attendance data. Please try again later.');
@@ -43,12 +43,12 @@ function AttendanceChart() {
     };
 
     fetchData();
-  }, []);
+  }, [dateRange]);
 
   const handleRetry = () => {
     setError(null);
     setLoading(true);
-    getAttendanceAnalytics()
+    getAttendanceAnalytics(dateRange)
       .then(setData)
       .catch((err) => {
         setError('Failed to load attendance data. Please try again later.');
@@ -100,6 +100,7 @@ function AttendanceChart() {
       <KPICard
         title="Absenteeism Rate"
         value={`${absenteeism_rate?.toFixed(1) ?? 0}%`}
+        color="green"
       />
 
       {/* Line Chart for Attendance Trends */}
@@ -163,6 +164,15 @@ function AttendanceChart() {
   );
 }
 
-AttendanceChart.propTypes = {};
+AttendanceChart.propTypes = {
+  dateRange: PropTypes.shape({
+    startDate: PropTypes.string,
+    endDate: PropTypes.string,
+  }),
+};
+
+AttendanceChart.defaultProps = {
+  dateRange: null,
+};
 
 export default AttendanceChart;
