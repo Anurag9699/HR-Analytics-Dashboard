@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // Base URL configuration for Django backend
-const API_BASE_URL = 'http://localhost:8000/api';
+// Uses environment variable in production, localhost in development
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:8000/api';
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
